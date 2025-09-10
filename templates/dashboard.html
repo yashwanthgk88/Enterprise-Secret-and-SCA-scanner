@@ -108,7 +108,7 @@
             border-radius: 10px;
         }
         
-        .form-control::placeholder {
+        .form-control::placeholder, .form-select option {
             color: rgba(255, 255, 255, 0.7);
         }
         
@@ -117,6 +117,22 @@
             border-color: rgba(255, 255, 255, 0.5);
             box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
             color: white;
+        }
+        
+        .progress-step {
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .progress-step i {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .progress-step .small {
+            color: #fff;
+            font-weight: 500;
         }
         
         .table-dark {
@@ -235,36 +251,81 @@
             <!-- Onboard Tab -->
             <div class="tab-pane fade" id="onboard" role="tabpanel">
                 <div class="glass-card p-4">
-                    <h4 class="text-white mb-4">Onboard New Application</h4>
-                    <form id="onboardForm">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label text-white">Application Name *</label>
-                                    <input type="text" class="form-control" id="appName" required>
-                                </div>
+                    <div class="card-body">
+                        <h5 class="card-title">Onboard New Application</h5>
+                        
+                        <!-- Progress Section -->
+                        <div id="onboardProgress" class="mb-4" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">Onboarding Progress</h6>
+                                <span id="progressPercentage" class="badge bg-primary">0%</span>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label text-white">Repository Type *</label>
-                                    <select class="form-select" id="repoType" required>
-                                        <option value="github">GitHub</option>
-                                        <option value="gitlab">GitLab</option>
-                                        <option value="bitbucket">Bitbucket</option>
-                                        <option value="local">Local Path</option>
-                                    </select>
+                            <div class="progress mb-2" style="height: 8px;">
+                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="progressMessage" class="text-muted small">
+                                Initializing...
+                            </div>
+                            <div id="progressDetails" class="mt-2" style="display: none;">
+                                <div class="row text-center">
+                                    <div class="col">
+                                        <div id="stepValidating" class="progress-step">
+                                            <i class="fas fa-check-circle text-muted"></i>
+                                            <div class="small">Validating</div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div id="stepCloning" class="progress-step">
+                                            <i class="fas fa-check-circle text-muted"></i>
+                                            <div class="small">Cloning</div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div id="stepAnalyzing" class="progress-step">
+                                            <i class="fas fa-check-circle text-muted"></i>
+                                            <div class="small">Analyzing</div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div id="stepScanning" class="progress-step">
+                                            <i class="fas fa-check-circle text-muted"></i>
+                                            <div class="small">Scanning</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label class="form-label text-white">Repository URL / Local Path *</label>
-                                    <input type="text" class="form-control" id="repoUrl" required>
-                                    <div class="form-text text-white-50">For GitHub: https://github.com/owner/repo</div>
+                        
+                        <form id="onboardForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="appName" class="form-label">Application Name</label>
+                                        <input type="text" class="form-control" id="appName" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="repoType" class="form-label">Repository Type</label>
+                                        <select class="form-select" id="repoType" required>
+                                            <option value="">Select type...</option>
+                                            <option value="github">GitHub</option>
+                                            <option value="gitlab">GitLab</option>
+                                            <option value="bitbucket">Bitbucket</option>
+                                            <option value="local">Local Path</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                            <div id="repoUrlGroup" class="mb-3" style="display: none;">
+                                <label for="repoUrl" class="form-label">Repository URL</label>
+                                <input type="url" class="form-control" id="repoUrl">
+                            </div>
+                            <div id="localPathGroup" class="mb-3" style="display: none;">
+                                <label for="localPath" class="form-label">Local Path</label>
+                                <input type="text" class="form-control" id="localPath">
+                            </div>
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="mb-3">

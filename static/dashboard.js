@@ -269,50 +269,196 @@ async function validateRepository() {
         }
     } catch (error) {
         hideLoading();
-        showAlert('error', `Validation error: ${error.message}`);
+        showAlert('danger', 'Error validating repository: ' + error.message);
     }
 }
 
-async function handleOnboardSubmit(event) {
-    event.preventDefault();
-    
+// Onboard application with progress tracking
+async function onboardApplication() {
     const formData = {
         name: document.getElementById('appName').value,
         repo_type: document.getElementById('repoType').value,
         repo_url: document.getElementById('repoUrl').value,
+        local_path: document.getElementById('localPath').value,
         team: document.getElementById('team').value,
         owner: document.getElementById('owner').value,
         criticality: document.getElementById('criticality').value,
         access_token: document.getElementById('accessToken').value,
         auto_scan: document.getElementById('autoScan').checked
     };
-    
-    // Handle local path vs repo URL
-    if (formData.repo_type === 'local') {
-        formData.local_path = formData.repo_url;
-        formData.repo_url = null;
-    }
-    
-    showLoading('Onboarding application...');
-    
+
     try {
-        await apiCall('/applications/onboard', {
+        // Show progress section
+        showProgress();
+        
+        const response = await fetch('/api/applications/onboard', {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(formData)
         });
+
+        const result = await response.json();
         
-        hideLoading();
-        showAlert('success', 'Application onboarded successfully!');
-        
-        // Reset form and refresh applications
-        document.getElementById('onboardForm').reset();
-        loadApplications();
-        loadDashboardStats();
-        
+        if (response.ok) {
+            // Start listening for progress updates
+            listenForProgress(result.operation_id);
+        } else {
+            hideProgress();
+            showAlert('danger', result.error);
+        }
     } catch (error) {
-        hideLoading();
-        showAlert('error', `Onboarding failed: ${error.message}`);
+        hideProgress();
+        showAlert('danger', 'Error onboarding application: ' + error.message);
     }
+}
+
+// Show progress section
+function showProgress() {
+    document.getElementById('onboardProgress').style.display = 'block';
+    document.getElementById('progressDetails').style.display = 'block';
+    document.getElementById('onboardForm').style.opacity = '0.6';
+    document.getElementById('onboardForm').style.pointerEvents = 'none';
+    
+    // Reset progress
+    updateProgress(0, 'Initializing...', 'starting');
+    resetProgressSteps();
+}
+
+// Hide progress section
+function hideProgress() {
+    document.getElementById('onboardProgress').style.display = 'none';
+    document.getElementById('onboardForm').style.opacity = '1';
+    document.getElementById('onboardForm').style.pointerEvents = 'auto';
+}
+
+// Update progress bar and message
+function updateProgress(percentage, message, status) {
+    const progressBar = document.getElementById('progressBar');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressMessage = document.getElementById('progressMessage');
+    
+    progressBar.style.width = percentage + '%';
+    progressPercentage.textContent = percentage + '%';
+    progressMessage.textContent = message;
+    
+    // Update progress bar color based on status
+    progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+    if (status === 'completed') {
+        progressBar.classList.add('bg-success');
+    } else if (status === 'failed') {
+        progressBar.classList.add('bg-danger');
+    } else {
+        progressBar.classList.add('bg-primary');
+    }
+}
+
+// Reset progress steps
+function resetProgressSteps() {
+    const steps = ['stepValidating', 'stepCloning', 'stepAnalyzing', 'stepScanning'];
+    steps.forEach(stepId => {
+        const step = document.getElementById(stepId);
+        const icon = step.querySelector('i');
+        icon.className = 'fas fa-check-circle text-muted';
+    });
+}
+
+// Update progress step
+function updateProgressStep(stepName, status) {
+    const stepId = 'step' + stepName.charAt(0).toUpperCase() + stepName.slice(1);
+    const step = document.getElementById(stepId);
+    if (!step) return;
+    
+    const icon = step.querySelector('i');
+    
+    if (status === 'active') {
+        icon.className = 'fas fa-spinner fa-spin text-primary';
+    } else if (status === 'completed') {
+        icon.className = 'fas fa-check-circle text-success';
+    } else if (status === 'failed') {
+        icon.className = 'fas fa-times-circle text-danger';
+    }
+}
+
+// Listen for progress updates using Server-Sent Events
+function listenForProgress(operationId) {
+    const eventSource = new EventSource(`/api/progress/${operationId}`);
+    
+    eventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'heartbeat') {
+                return; // Ignore heartbeat messages
+            }
+            
+            if (data.error) {
+                hideProgress();
+                showAlert('danger', data.error);
+                eventSource.close();
+                return;
+            }
+            
+            // Update progress bar
+            updateProgress(data.percentage, data.message, data.status);
+            
+            // Update progress steps based on status
+            if (data.status === 'validating') {
+                updateProgressStep('validating', 'active');
+            } else if (data.status === 'cloning') {
+                updateProgressStep('validating', 'completed');
+                updateProgressStep('cloning', 'active');
+            } else if (data.status === 'analyzing') {
+                updateProgressStep('cloning', 'completed');
+                updateProgressStep('analyzing', 'active');
+            } else if (data.status === 'scanning') {
+                updateProgressStep('analyzing', 'completed');
+                updateProgressStep('scanning', 'active');
+            } else if (data.status === 'completed') {
+                updateProgressStep('scanning', 'completed');
+                
+                setTimeout(() => {
+                    hideProgress();
+                    showAlert('success', data.message);
+                    document.getElementById('onboardForm').reset();
+                    loadApplications();
+                    eventSource.close();
+                }, 2000);
+            } else if (data.status === 'failed') {
+                // Mark current step as failed
+                const currentStep = getCurrentStep(data.percentage);
+                if (currentStep) {
+                    updateProgressStep(currentStep, 'failed');
+                }
+                
+                setTimeout(() => {
+                    hideProgress();
+                    showAlert('danger', data.message);
+                    eventSource.close();
+                }, 2000);
+            }
+            
+        } catch (error) {
+            console.error('Error parsing progress data:', error);
+        }
+    };
+    
+    eventSource.onerror = function(event) {
+        console.error('EventSource failed:', event);
+        hideProgress();
+        showAlert('danger', 'Connection lost. Please try again.');
+        eventSource.close();
+    };
+}
+
+// Get current step based on percentage
+function getCurrentStep(percentage) {
+    if (percentage <= 20) return 'validating';
+    if (percentage <= 40) return 'cloning';
+    if (percentage <= 70) return 'analyzing';
+    if (percentage <= 95) return 'scanning';
+    return null;
 }
 
 // Scanning functions

@@ -10,8 +10,11 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 import threading
 
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS
+import json
+import time
+import queue
 
 from .models.database import DatabaseManager
 from .app_onboarding import ApplicationOnboarding
@@ -43,6 +46,10 @@ class SecurityScannerAPI:
         self.active_scans = {}  # Track active scans
         self.scan_lock = threading.Lock()
         
+        # Progress tracking for real-time updates
+        self.progress_queues = {}  # Store progress queues for each operation
+        self.progress_lock = threading.Lock()
+        
         # Register routes
         self._register_routes()
     
@@ -72,7 +79,7 @@ class SecurityScannerAPI:
         
         @self.app.route('/api/applications/onboard', methods=['POST'])
         def onboard_application():
-            """Onboard a new application"""
+            """Onboard a new application with progress tracking"""
             try:
                 data = request.get_json()
                 
@@ -82,26 +89,29 @@ class SecurityScannerAPI:
                     if field not in data:
                         return jsonify({'error': f'Missing required field: {field}'}), 400
                 
-                # Onboard application
-                success, message = self.onboarding.onboard_application(
-                    name=data['name'],
-                    repo_type=data['repo_type'],
-                    repo_url=data.get('repo_url'),
-                    local_path=data.get('local_path'),
-                    team=data.get('team'),
-                    owner=data.get('owner'),
-                    criticality=data.get('criticality', 'medium'),
-                    access_token=data.get('access_token'),
-                    auto_scan=data.get('auto_scan', True)
+                app_name = data['name']
+                
+                # Create progress queue for this operation
+                progress_queue = queue.Queue()
+                operation_id = f"onboard_{app_name}_{int(time.time())}"
+                
+                with self.progress_lock:
+                    self.progress_queues[operation_id] = progress_queue
+                
+                # Start onboarding in background with progress tracking
+                future = self.scan_executor.submit(
+                    self._onboard_with_progress, 
+                    data, 
+                    progress_queue
                 )
                 
-                if success:
-                    return jsonify({'message': message}), 201
-                else:
-                    return jsonify({'error': message}), 400
+                return jsonify({
+                    'message': f'Onboarding started for {app_name}',
+                    'operation_id': operation_id
+                }), 202
             
             except Exception as e:
-                logger.error(f"Error onboarding application: {e}")
+                logger.error(f"Error starting onboarding: {e}")
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/applications/validate', methods=['POST'])
@@ -344,6 +354,263 @@ class SecurityScannerAPI:
             except Exception as e:
                 logger.error(f"Error getting recent scans: {e}")
                 return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/progress/<operation_id>')
+        def get_progress(operation_id):
+            """Server-Sent Events endpoint for real-time progress updates"""
+            def generate():
+                with self.progress_lock:
+                    progress_queue = self.progress_queues.get(operation_id)
+                
+                if not progress_queue:
+                    yield f"data: {json.dumps({'error': 'Operation not found'})}\n\n"
+                    return
+                
+                try:
+                    while True:
+                        try:
+                            # Get progress update with timeout
+                            progress_data = progress_queue.get(timeout=1)
+                            yield f"data: {json.dumps(progress_data)}\n\n"
+                            
+                            # If operation is complete, clean up and exit
+                            if progress_data.get('status') in ['completed', 'failed']:
+                                with self.progress_lock:
+                                    if operation_id in self.progress_queues:
+                                        del self.progress_queues[operation_id]
+                                break
+                                
+                        except queue.Empty:
+                            # Send heartbeat to keep connection alive
+                            yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+                            continue
+                            
+                except GeneratorExit:
+                    # Client disconnected, clean up
+                    with self.progress_lock:
+                        if operation_id in self.progress_queues:
+                            del self.progress_queues[operation_id]
+            
+            return Response(
+                generate(),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            )
+    
+    def _onboard_with_progress(self, data: Dict, progress_queue: queue.Queue):
+        """Onboard application with progress tracking"""
+        try:
+            app_name = data['name']
+            
+            # Send initial progress
+            progress_queue.put({
+                'type': 'progress',
+                'status': 'starting',
+                'message': f'Starting onboarding for {app_name}',
+                'percentage': 0
+            })
+            
+            # Validate repository
+            progress_queue.put({
+                'type': 'progress',
+                'status': 'validating',
+                'message': 'Validating repository access...',
+                'percentage': 10
+            })
+            
+            validation_url = data.get('local_path') if data['repo_type'] == 'local' else data.get('repo_url')
+            is_valid, validation_message = self.onboarding.validate_repository(
+                validation_url, data['repo_type'], data.get('access_token')
+            )
+            
+            if not is_valid:
+                progress_queue.put({
+                    'type': 'progress',
+                    'status': 'failed',
+                    'message': f'Repository validation failed: {validation_message}',
+                    'percentage': 100
+                })
+                return
+            
+            # Clone repository if remote
+            if data['repo_type'] != 'local':
+                progress_queue.put({
+                    'type': 'progress',
+                    'status': 'cloning',
+                    'message': 'Cloning repository...',
+                    'percentage': 30
+                })
+                
+                clone_success, clone_result = self.onboarding.clone_repository(
+                    data.get('repo_url'), app_name, data.get('access_token')
+                )
+                
+                if not clone_success:
+                    progress_queue.put({
+                        'type': 'progress',
+                        'status': 'failed',
+                        'message': f'Failed to clone repository: {clone_result}',
+                        'percentage': 100
+                    })
+                    return
+                
+                scan_path = clone_result
+            else:
+                scan_path = data.get('local_path')
+            
+            # Auto-detect language and framework
+            progress_queue.put({
+                'type': 'progress',
+                'status': 'analyzing',
+                'message': 'Analyzing project structure...',
+                'percentage': 50
+            })
+            
+            language, framework = self.onboarding.detect_language_and_framework(scan_path)
+            
+            # Add to database
+            progress_queue.put({
+                'type': 'progress',
+                'status': 'saving',
+                'message': 'Saving application to database...',
+                'percentage': 70
+            })
+            
+            success = self.db.add_application(
+                name=app_name,
+                repo_type=data['repo_type'],
+                repo_url=data.get('repo_url'),
+                local_path=scan_path,
+                team=data.get('team'),
+                owner=data.get('owner'),
+                criticality=data.get('criticality', 'medium'),
+                language=language,
+                framework=framework
+            )
+            
+            if not success:
+                progress_queue.put({
+                    'type': 'progress',
+                    'status': 'failed',
+                    'message': 'Failed to add application to database',
+                    'percentage': 100
+                })
+                return
+            
+            # Run initial scan if requested
+            if data.get('auto_scan', True):
+                progress_queue.put({
+                    'type': 'progress',
+                    'status': 'scanning',
+                    'message': 'Running initial security scan...',
+                    'percentage': 80
+                })
+                
+                # Create scan record
+                scan_id = self.db.create_scan(app_name, 'full')
+                
+                # Run scans with progress updates
+                secret_findings = self._scan_with_progress(scan_path, 'secrets', progress_queue, 80, 90)
+                sca_findings = self._scan_with_progress(scan_path, 'sca', progress_queue, 90, 95)
+                
+                # Store findings
+                severity_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
+                
+                for finding in secret_findings:
+                    self.db.add_secret_finding(
+                        scan_id=scan_id,
+                        app_name=app_name,
+                        file_path=finding.file_path,
+                        line_number=finding.line_number,
+                        pattern_name=finding.pattern_name,
+                        pattern_type=finding.pattern_type,
+                        severity=finding.severity,
+                        confidence=finding.confidence,
+                        secret_hash=finding.secret_hash,
+                        context_before=finding.context_before,
+                        context_after=finding.context_after,
+                        remediation=finding.remediation
+                    )
+                    severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+                
+                for finding in sca_findings:
+                    self.db.add_sca_finding(
+                        scan_id=scan_id,
+                        app_name=app_name,
+                        package_manager=finding.package_manager,
+                        package_name=finding.package_name,
+                        current_version=finding.current_version,
+                        vulnerable_version=finding.vulnerable_version,
+                        fixed_version=finding.fixed_version,
+                        cve_id=finding.cve_id,
+                        severity=finding.severity,
+                        cvss_score=finding.cvss_score,
+                        description=finding.description,
+                        remediation=finding.remediation,
+                        file_path=finding.file_path
+                    )
+                    severity_counts[finding.severity] = severity_counts.get(finding.severity, 0) + 1
+                
+                # Complete scan
+                self.db.complete_scan(
+                    scan_id=scan_id,
+                    secrets_found=len(secret_findings),
+                    vulnerabilities_found=len(sca_findings),
+                    critical_count=severity_counts['critical'],
+                    high_count=severity_counts['high'],
+                    medium_count=severity_counts['medium'],
+                    low_count=severity_counts['low']
+                )
+                
+                self.db.update_application_scan_time(app_name)
+            
+            # Complete successfully
+            progress_queue.put({
+                'type': 'progress',
+                'status': 'completed',
+                'message': f'Successfully onboarded {app_name}. Language: {language}, Framework: {framework}',
+                'percentage': 100,
+                'result': {
+                    'language': language,
+                    'framework': framework,
+                    'scan_completed': data.get('auto_scan', True)
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in onboarding with progress: {e}")
+            progress_queue.put({
+                'type': 'progress',
+                'status': 'failed',
+                'message': f'Onboarding failed: {str(e)}',
+                'percentage': 100
+            })
+    
+    def _scan_with_progress(self, scan_path: str, scan_type: str, progress_queue: queue.Queue, start_pct: int, end_pct: int):
+        """Run scan with progress updates"""
+        try:
+            if scan_type == 'secrets':
+                findings = self.secret_scanner.scan_directory(scan_path)
+            elif scan_type == 'sca':
+                findings = self.sca_scanner.scan_directory(scan_path)
+            else:
+                return []
+            
+            progress_queue.put({
+                'type': 'progress',
+                'status': 'scanning',
+                'message': f'{scan_type.upper()} scan completed: {len(findings)} findings',
+                'percentage': end_pct
+            })
+            
+            return findings
+        except Exception as e:
+            logger.error(f"Error in {scan_type} scan: {e}")
+            return []
     
     def _perform_scan(self, app_names: List[str], scan_type: str):
         """Perform security scan for applications (runs in background)"""
