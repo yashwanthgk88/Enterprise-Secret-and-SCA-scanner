@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  enterprise-scanner:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./repos:/app/repos
+      - ./config:/app/config
+    environment:
+      - FLASK_ENV=production
+      - PYTHONPATH=/app/src
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

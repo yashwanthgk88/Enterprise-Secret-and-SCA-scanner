@@ -1,0 +1,128 @@
+# Enterprise Secret Scanner & SCA Tool Configuration
+# Default configuration for scanning applications
+
+# Scanner settings
+scanner:
+  # Maximum number of parallel scans
+  max_workers: 4
+  
+  # Scan timeout in seconds (30 minutes)
+  scan_timeout: 1800
+  
+  # Maximum file size to scan (10MB)
+  max_file_size: 10485760
+  
+  # File extensions to scan
+  scannable_extensions:
+    - .py
+    - .js
+    - .ts
+    - .jsx
+    - .tsx
+    - .java
+    - .php
+    - .rb
+    - .go
+    - .cs
+    - .cpp
+    - .c
+    - .h
+    - .hpp
+    - .json
+    - .xml
+    - .yaml
+    - .yml
+    - .properties
+    - .env
+    - .config
+    - .sh
+    - .bat
+    - .ps1
+    - .sql
+    - .md
+    - .txt
+    - .ini
+    - .conf
+  
+  # Directories to skip during scanning
+  skip_directories:
+    - .git
+    - .svn
+    - .hg
+    - node_modules
+    - __pycache__
+    - .pytest_cache
+    - venv
+    - env
+    - .env
+    - build
+    - dist
+    - target
+    - bin
+    - obj
+    - .idea
+    - .vscode
+    - logs
+    - tmp
+    - temp
+
+# Entropy analysis settings
+entropy:
+  # Minimum string length for entropy analysis
+  min_length: 20
+  
+  # Minimum entropy threshold
+  min_entropy: 4.5
+  
+  # Minimum percentage of unique characters
+  min_unique_chars: 0.3
+
+# Database settings
+database:
+  # Database file path
+  path: "data/scanner.db"
+  
+  # Data retention period in days
+  retention_days: 365
+
+# Repository settings
+repositories:
+  # Default clone directory
+  clone_dir: "./repos"
+  
+  # Git clone timeout in seconds
+  clone_timeout: 300
+  
+  # Repository validation timeout
+  validation_timeout: 30
+
+# Web server settings
+web_server:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+  
+  # CORS settings
+  cors_origins: "*"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/scanner.log"
+
+# Sample applications for testing
+sample_applications:
+  - name: "sample-python-app"
+    repo_type: "github"
+    repo_url: "https://github.com/example/python-sample"
+    team: "security"
+    owner: "admin"
+    criticality: "medium"
+    
+  - name: "sample-node-app"
+    repo_type: "github"
+    repo_url: "https://github.com/example/node-sample"
+    team: "development"
+    owner: "admin"
+    criticality: "high"

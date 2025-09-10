@@ -1,0 +1,177 @@
+# Custom Secret Detection Patterns
+# Organization-specific patterns for detecting secrets and sensitive data
+
+patterns:
+  # Custom API Keys
+  - name: "Custom API Key Pattern"
+    pattern: "(?i)(custom[_-]?api[_-]?key|customkey)\s*[=:]\s*[\"']?([A-Za-z0-9_\\-]{32,})[\"']?"
+    severity: "high"
+    confidence: 0.85
+    description: "Custom organization API key detected"
+    remediation: "Move API keys to environment variables or secure key management system"
+    type: "regex"
+  
+  # Internal Service Tokens
+  - name: "Internal Service Token"
+    pattern: "(?i)(service[_-]?token|svc[_-]?token)\s*[=:]\s*[\"']?([A-Za-z0-9_\\-]{20,})[\"']?"
+    severity: "medium"
+    confidence: 0.8
+    description: "Internal service token detected"
+    remediation: "Use secure token management and rotation policies"
+    type: "regex"
+  
+  # Database Connection Strings
+  - name: "Custom Database Connection"
+    pattern: "(?i)(db[_-]?connection|database[_-]?url)\s*[=:]\s*[\"']?([^\"'\\s]+://[^\"'\\s]+)[\"']?"
+    severity: "high"
+    confidence: 0.9
+    description: "Database connection string with potential credentials"
+    remediation: "Use environment variables for database credentials"
+    type: "regex"
+  
+  # LDAP Credentials
+  - name: "LDAP Bind Password"
+    pattern: "(?i)(ldap[_-]?bind[_-]?password|ldap[_-]?pwd)\s*[=:]\s*[\"']?([^\"'\\s]{8,})[\"']?"
+    severity: "high"
+    confidence: 0.9
+    description: "LDAP bind password detected"
+    remediation: "Use secure credential storage for LDAP authentication"
+    type: "regex"
+  
+  # Encryption Keys
+  - name: "Encryption Key"
+    pattern: "(?i)(encryption[_-]?key|encrypt[_-]?key|cipher[_-]?key)\s*[=:]\s*[\"']?([A-Za-z0-9+/]{32,})[\"']?"
+    severity: "critical"
+    confidence: 0.95
+    description: "Encryption key detected in code"
+    remediation: "Store encryption keys in secure key management systems"
+    type: "regex"
+  
+  # OAuth Secrets
+  - name: "OAuth Client Secret"
+    pattern: "(?i)(oauth[_-]?client[_-]?secret|client[_-]?secret)\s*[=:]\s*[\"']?([A-Za-z0-9_\\-]{20,})[\"']?"
+    severity: "high"
+    confidence: 0.9
+    description: "OAuth client secret detected"
+    remediation: "Store OAuth secrets securely and rotate regularly"
+    type: "regex"
+  
+  # Webhook URLs with tokens
+  - name: "Webhook URL with Token"
+    pattern: "https://hooks\\.[^/]+/[^/]+/[A-Za-z0-9]{20,}"
+    severity: "medium"
+    confidence: 0.8
+    description: "Webhook URL with embedded token"
+    remediation: "Use environment variables for webhook URLs"
+    type: "regex"
+  
+  # Cloud Provider Keys
+  - name: "Azure Storage Key"
+    pattern: "(?i)(azure[_-]?storage[_-]?key|storage[_-]?account[_-]?key)\s*[=:]\s*[\"']?([A-Za-z0-9+/]{88}==)[\"']?"
+    severity: "critical"
+    confidence: 0.95
+    description: "Azure storage account key detected"
+    remediation: "Use Azure Key Vault for storage keys"
+    type: "regex"
+  
+  - name: "GCP Service Account Key"
+    pattern: "\"type\":\\s*\"service_account\""
+    severity: "critical"
+    confidence: 0.9
+    description: "Google Cloud service account key file detected"
+    remediation: "Remove service account keys from code and use workload identity"
+    type: "regex"
+  
+  # SSH Keys (additional patterns)
+  - name: "SSH Private Key (ECDSA)"
+    pattern: "-----BEGIN EC PRIVATE KEY-----"
+    severity: "critical"
+    confidence: 1.0
+    description: "ECDSA SSH private key detected"
+    remediation: "Remove private keys from code and use secure key storage"
+    type: "regex"
+  
+  - name: "SSH Private Key (Ed25519)"
+    pattern: "-----BEGIN OPENSSH PRIVATE KEY-----"
+    severity: "critical"
+    confidence: 1.0
+    description: "Ed25519 SSH private key detected"
+    remediation: "Remove private keys from code and use secure key storage"
+    type: "regex"
+  
+  # Certificate Files
+  - name: "Private Certificate Key"
+    pattern: "-----BEGIN PRIVATE KEY-----"
+    severity: "critical"
+    confidence: 1.0
+    description: "Private certificate key detected"
+    remediation: "Remove private certificates from code"
+    type: "regex"
+  
+  # Generic High-Entropy Secrets
+  - name: "High Entropy Base64"
+    pattern: "(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?[A-Za-z0-9+/]{40,}"
+    severity: "medium"
+    confidence: 0.6
+    description: "Potential Base64 encoded secret"
+    remediation: "Review if this is a hardcoded secret that should be externalized"
+    type: "regex"
+  
+  # Configuration-specific patterns
+  - name: "Config Password"
+    pattern: "(?i)(config[_-]?password|cfg[_-]?pwd)\s*[=:]\s*[\"']?([^\"'\\s]{8,})[\"']?"
+    severity: "medium"
+    confidence: 0.7
+    description: "Configuration password detected"
+    remediation: "Use environment variables for configuration passwords"
+    type: "regex"
+  
+  # JWT Tokens (more specific)
+  - name: "JWT Token (Specific)"
+    pattern: "eyJ[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]*"
+    severity: "medium"
+    confidence: 0.85
+    description: "JWT token detected"
+    remediation: "Ensure JWT tokens are not hardcoded and have proper expiration"
+    type: "regex"
+
+# Pattern categories for organization
+categories:
+  authentication:
+    - "Custom API Key Pattern"
+    - "Internal Service Token"
+    - "OAuth Client Secret"
+    - "LDAP Bind Password"
+  
+  cloud_services:
+    - "Azure Storage Key"
+    - "GCP Service Account Key"
+  
+  cryptographic:
+    - "Encryption Key"
+    - "Private Certificate Key"
+    - "SSH Private Key (ECDSA)"
+    - "SSH Private Key (Ed25519)"
+  
+  database:
+    - "Custom Database Connection"
+  
+  generic:
+    - "High Entropy Base64"
+    - "Config Password"
+    - "JWT Token (Specific)"
+
+# Exclusion patterns (reduce false positives)
+exclusions:
+  # Common test/example patterns to ignore
+  - pattern: "(?i)(test|example|sample|demo|placeholder)"
+    description: "Test or example values"
+  
+  - pattern: "(?i)(todo|fixme|xxx|yyy|zzz)"
+    description: "Development placeholders"
+  
+  - pattern: "^[0-9]+$"
+    description: "Numeric only strings"
+  
+  - pattern: "^[a-zA-Z]+$"
+    description: "Alphabetic only strings"
