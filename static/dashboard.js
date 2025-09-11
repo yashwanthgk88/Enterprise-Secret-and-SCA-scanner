@@ -19,6 +19,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up form submission
     document.getElementById('onboardForm').addEventListener('submit', handleOnboardSubmit);
     
+    // Set up repository type change handler
+    document.getElementById('repoType').addEventListener('change', handleRepoTypeChange);
+    
+    // Set up local path browser
+    document.getElementById('browseLocalPath').addEventListener('click', handleBrowseLocalPath);
+    document.getElementById('localPathPicker').addEventListener('change', handleLocalPathSelection);
+    
     // Auto-refresh every 30 seconds
     setInterval(loadDashboardStats, 30000);
 });
@@ -474,6 +481,55 @@ function getCurrentStep(percentage) {
     if (percentage <= 70) return 'analyzing';
     if (percentage <= 95) return 'scanning';
     return null;
+}
+
+// Handle repository type change
+function handleRepoTypeChange() {
+    const repoType = document.getElementById('repoType').value;
+    const repoUrlGroup = document.getElementById('repoUrlGroup');
+    const localPathGroup = document.getElementById('localPathGroup');
+    
+    // Hide both groups first
+    repoUrlGroup.style.display = 'none';
+    localPathGroup.style.display = 'none';
+    
+    // Show appropriate group based on selection
+    if (repoType === 'local') {
+        localPathGroup.style.display = 'block';
+    } else if (repoType && repoType !== '') {
+        repoUrlGroup.style.display = 'block';
+    }
+}
+
+// Handle browse local path button click
+function handleBrowseLocalPath() {
+    document.getElementById('localPathPicker').click();
+}
+
+// Handle local path selection
+function handleLocalPathSelection(event) {
+    const files = event.target.files;
+    if (files.length > 0) {
+        // Get the directory path from the first file
+        const firstFile = files[0];
+        const directoryPath = firstFile.webkitRelativePath.split('/')[0];
+        
+        // For security reasons, browsers don't provide full system paths
+        // Show the relative directory name and prompt for full path
+        const localPathInput = document.getElementById('localPath');
+        
+        // If the input is empty, suggest the directory name
+        if (!localPathInput.value.trim()) {
+            localPathInput.value = directoryPath;
+        }
+        
+        // Show informative message
+        showAlert('info', `Directory "${directoryPath}" selected (${files.length} files). Please verify or update the full path in the input field.`);
+        
+        // Focus on the input field for manual editing
+        localPathInput.focus();
+        localPathInput.select();
+    }
 }
 
 // Scanning functions

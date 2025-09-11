@@ -324,7 +324,21 @@
                             </div>
                             <div id="localPathGroup" class="mb-3" style="display: none;">
                                 <label for="localPath" class="form-label">Local Path</label>
-                                <input type="text" class="form-control" id="localPath">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="localPath" placeholder="Enter full path or browse...">
+                                    <button class="btn btn-outline-secondary" type="button" id="browseLocalPath">
+                                        <i class="fas fa-folder-open me-2"></i>Browse
+                                    </button>
+                                </div>
+                                <input type="file" id="localPathPicker" webkitdirectory directory multiple style="display: none;">
+                                <div class="form-text text-white-50">
+                                    Enter the full path (e.g., /Users/username/project) or click Browse to select a directory
+                                </div>
+                                <div class="alert alert-info mt-2" style="font-size: 0.875rem;">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Note:</strong> Due to browser security, the Browse button shows relative paths only. 
+                                    For full system paths, please type the complete path manually.
+                                </div>
                             </div>
                         <div class="row">
                             <div class="col-md-4">
