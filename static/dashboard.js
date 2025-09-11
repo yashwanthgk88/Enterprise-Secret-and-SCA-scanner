@@ -171,19 +171,34 @@ function updateActivityChart(activityData) {
 // Application management
 async function loadApplications() {
     try {
+        console.log('Loading applications...');
         const data = await apiCall('/applications/list');
+        console.log('Applications data received:', data);
         applications = data.applications;
+        console.log('Applications array:', applications);
         renderApplications();
         updateFindingsFilter();
     } catch (error) {
         console.error('Failed to load applications:', error);
+        // Show error in UI
+        const container = document.getElementById('applicationsList');
+        if (container) {
+            container.innerHTML = '<div class="text-danger text-center py-4">Error loading applications. Please refresh the page.</div>';
+        }
     }
 }
 
 function renderApplications() {
     const container = document.getElementById('applicationsList');
+    console.log('Rendering applications, container:', container);
+    console.log('Applications to render:', applications);
     
-    if (applications.length === 0) {
+    if (!container) {
+        console.error('Applications container not found!');
+        return;
+    }
+    
+    if (!applications || applications.length === 0) {
         container.innerHTML = '<div class="text-white text-center py-4">No applications onboarded yet.</div>';
         return;
     }
@@ -566,17 +581,31 @@ function updateFindingsFilter() {
 // Scan history
 async function loadRecentScans() {
     try {
+        console.log('Loading recent scans...');
         const data = await apiCall('/scans/recent?limit=20');
+        console.log('Scans data received:', data);
         renderRecentScans(data.scans);
     } catch (error) {
         console.error('Failed to load recent scans:', error);
+        // Show error in UI
+        const container = document.getElementById('scansList');
+        if (container) {
+            container.innerHTML = '<div class="text-danger text-center py-4">Error loading scans. Please refresh the page.</div>';
+        }
     }
 }
 
 function renderRecentScans(scans) {
     const container = document.getElementById('scansList');
+    console.log('Rendering scans, container:', container);
+    console.log('Scans to render:', scans);
     
-    if (scans.length === 0) {
+    if (!container) {
+        console.error('Scans container not found!');
+        return;
+    }
+    
+    if (!scans || scans.length === 0) {
         container.innerHTML = '<div class="text-white text-center py-4">No scans found.</div>';
         return;
     }
