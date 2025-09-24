@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applications - Enterprise Security Scanner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .app-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            padding: 30px;
+        }
+        .app-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+        .app-card:hover {
+            transform: translateY(-5px);
+        }
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .app-title i {
+            margin-right: 10px;
+            color: #4facfe;
+        }
+        .badge-container {
+            margin-bottom: 15px;
+        }
+        .badge {
+            margin-right: 8px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+        .app-details {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .app-details div {
+            margin-bottom: 5px;
+        }
+        .app-details i {
+            width: 20px;
+            margin-right: 8px;
+        }
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn-custom {
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-scan {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .btn-scan:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+        .btn-view {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        .btn-view:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        .success-message {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .app-count {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50px;
+            padding: 5px 15px;
+            font-size: 0.9rem;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-shield-alt"></i>
+                Enterprise Security Scanner
+            </h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.8;">Your Onboarded Applications</p>
+        </div>
+
+        <!-- Applications Container -->
+        <div class="app-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <h2 style="margin: 0;">
+                    Applications
+                    <span class="app-count">2 Active</span>
+                </h2>
+                <div>
+                    <button class="btn-custom btn-view" onclick="window.location.reload()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Application 1: juiceshop -->
+            <div class="app-card">
+                <div class="app-title">
+                    <i class="fas fa-cube"></i>
+                    juiceshop
+                </div>
+                <div class="badge-container">
+                    <span class="badge bg-secondary">JavaScript</span>
+                    <span class="badge bg-info">Angular</span>
+                    <span class="badge bg-danger">High Risk</span>
+                </div>
+                <div class="app-details">
+                    <div><i class="fas fa-code-branch"></i><strong>Repository:</strong> GitHub - https://github.com/vulnerable-apps/juice-shop</div>
+                    <div><i class="fas fa-users"></i><strong>Team:</strong> OWASP | <strong>Owner:</strong> owasp</div>
+                    <div><i class="fas fa-calendar"></i><strong>Created:</strong> September 10, 2025</div>
+                    <div><i class="fas fa-folder"></i><strong>Local Path:</strong> ./repos/juiceshop</div>
+                    <div><i class="fas fa-info-circle"></i><strong>Status:</strong> Active and ready for scanning</div>
+                </div>
+                <div class="btn-container">
+                    <button class="btn-custom btn-scan" onclick="scanApp('juiceshop')">
+                        <i class="fas fa-search"></i> Start Security Scan
+                    </button>
+                    <button class="btn-custom btn-view" onclick="viewApp('juiceshop')">
+                        <i class="fas fa-eye"></i> View Findings
+                    </button>
+                </div>
+            </div>
+
+            <!-- Application 2: test -->
+            <div class="app-card">
+                <div class="app-title">
+                    <i class="fas fa-cube"></i>
+                    test
+                </div>
+                <div class="badge-container">
+                    <span class="badge bg-secondary">Unknown</span>
+                    <span class="badge bg-info">Unknown</span>
+                    <span class="badge bg-warning">Medium Risk</span>
+                </div>
+                <div class="app-details">
+                    <div><i class="fas fa-code-branch"></i><strong>Repository:</strong> GitHub - https://github.com/yashwanthgk88/Enterprise-Secret-and-SCA-scanner/</div>
+                    <div><i class="fas fa-users"></i><strong>Team:</strong> test | <strong>Owner:</strong> test</div>
+                    <div><i class="fas fa-calendar"></i><strong>Created:</strong> September 10, 2025</div>
+                    <div><i class="fas fa-folder"></i><strong>Local Path:</strong> ./repos/test</div>
+                    <div><i class="fas fa-info-circle"></i><strong>Status:</strong> Active and ready for scanning</div>
+                </div>
+                <div class="btn-container">
+                    <button class="btn-custom btn-scan" onclick="scanApp('test')">
+                        <i class="fas fa-search"></i> Start Security Scan
+                    </button>
+                    <button class="btn-custom btn-view" onclick="viewApp('test')">
+                        <i class="fas fa-eye"></i> View Findings
+                    </button>
+                </div>
+            </div>
+
+            <!-- Success Message -->
+            <div class="success-message">
+                <i class="fas fa-check-circle" style="color: #4caf50; margin-right: 10px;"></i>
+                <strong>Applications Loaded Successfully!</strong> 
+                Both applications are ready for security scanning and analysis.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function scanApp(appName) {
+            if (confirm(`Start comprehensive security scan for "${appName}"?\n\nThis will scan for:\n• Secret keys and tokens\n• Vulnerabilities in dependencies\n• Security misconfigurations`)) {
+                alert(`🔍 Security scan initiated for "${appName}"!\n\nThe scan will analyze:\n✓ Source code for secrets\n✓ Dependencies for vulnerabilities\n✓ Configuration files\n\nYou will be notified when complete.`);
+                
+                // Here you could make an actual API call to start the scan
+                // fetch('/api/scan', { method: 'POST', ... })
+            }
+        }
+
+        function viewApp(appName) {
+            alert(`📊 Viewing security findings for "${appName}":\n\n• Previous scan results\n• Vulnerability reports\n• Security recommendations\n\n(This would normally open the findings dashboard)`);
+            
+            // Here you could redirect to findings page
+            // window.location.href = `/findings?app=${appName}`;
+        }
+
+        // Show loading animation on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ Applications page loaded successfully');
+            console.log('📊 Found 2 applications: juiceshop, test');
+        });
+    </script>
+</body>
+</html>

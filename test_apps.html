@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Applications API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #333; color: white; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .app-card { background: #444; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #222; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Applications API Test</h1>
+        <button onclick="testAPI()">Test API</button>
+        <button onclick="testDirectFetch()">Test Direct Fetch</button>
+        
+        <h2>Results:</h2>
+        <div id="results"></div>
+        
+        <h2>Applications List:</h2>
+        <div id="applicationsList"></div>
+    </div>
+
+    <script>
+        async function testAPI() {
+            const results = document.getElementById('results');
+            try {
+                results.innerHTML = '<p>Testing API...</p>';
+                
+                const response = await fetch('/api/applications/list');
+                const data = await response.json();
+                
+                results.innerHTML = `
+                    <h3>API Response:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                renderApps(data.applications || []);
+            } catch (error) {
+                results.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function testDirectFetch() {
+            const results = document.getElementById('results');
+            try {
+                results.innerHTML = '<p>Testing direct fetch...</p>';
+                
+                const response = await fetch('http://127.0.0.1:5000/api/applications/list');
+                const text = await response.text();
+                
+                results.innerHTML = `
+                    <h3>Raw Response:</h3>
+                    <pre>${text}</pre>
+                `;
+                
+                const data = JSON.parse(text);
+                renderApps(data.applications || []);
+            } catch (error) {
+                results.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        function renderApps(apps) {
+            const container = document.getElementById('applicationsList');
+            if (!apps || apps.length === 0) {
+                container.innerHTML = '<p>No applications found</p>';
+                return;
+            }
+            
+            const html = apps.map(app => `
+                <div class="app-card">
+                    <h3>${app.name}</h3>
+                    <p><strong>Type:</strong> ${app.repo_type}</p>
+                    <p><strong>Language:</strong> ${app.language || 'Unknown'}</p>
+                    <p><strong>Framework:</strong> ${app.framework || 'Unknown'}</p>
+                    <p><strong>URL/Path:</strong> ${app.repo_url || app.local_path}</p>
+                    <p><strong>Team:</strong> ${app.team || 'N/A'}</p>
+                    <p><strong>Owner:</strong> ${app.owner || 'N/A'}</p>
+                    <p><strong>Created:</strong> ${app.created_at}</p>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        // Auto-test on load
+        window.onload = function() {
+            testAPI();
+        };
+    </script>
+</body>
+</html>

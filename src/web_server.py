@@ -49,6 +49,7 @@ class SecurityScannerAPI:
         # Progress tracking for real-time updates
         self.progress_queues = {}  # Store progress queues for each operation
         self.progress_lock = threading.Lock()
+        self.scan_progress = {}  # Store detailed scan progress for each application
         
         # Register routes
         self._register_routes()
@@ -59,7 +60,28 @@ class SecurityScannerAPI:
         # Dashboard route
         @self.app.route('/')
         def dashboard():
-            return render_template('dashboard.html')
+            # Get applications for server-side rendering
+            try:
+                applications = self.db.get_applications('active')
+                # Add scan status for each application
+                for app in applications:
+                    with self.scan_lock:
+                        app['scanning'] = app['name'] in self.active_scans
+            except Exception as e:
+                logger.error(f"Error loading applications for dashboard: {e}")
+                applications = []
+            
+            return render_template('dashboard.html', applications=applications)
+        
+        # Test route for debugging
+        @self.app.route('/test')
+        def test_page():
+            return send_from_directory('.', 'test_apps.html')
+        
+        # Simple applications page
+        @self.app.route('/apps')
+        def simple_apps():
+            return send_from_directory('.', 'simple_apps.html')
         
         # Static files
         @self.app.route('/static/<path:filename>')
@@ -257,10 +279,25 @@ class SecurityScannerAPI:
             """Get status of active scans"""
             try:
                 with self.scan_lock:
-                    return jsonify({'active_scans': dict(self.active_scans)})
+                    return jsonify({
+                        'active_scans': dict(self.active_scans),
+                        'scan_progress': dict(self.scan_progress)
+                    })
             
             except Exception as e:
                 logger.error(f"Error getting scan status: {e}")
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/scan/progress/<app_name>', methods=['GET'])
+        def get_scan_progress(app_name):
+            """Get detailed scan progress for a specific application"""
+            try:
+                with self.scan_lock:
+                    progress = self.scan_progress.get(app_name, {})
+                    return jsonify({'progress': progress})
+            
+            except Exception as e:
+                logger.error(f"Error getting scan progress for {app_name}: {e}")
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/findings', methods=['GET'])
@@ -617,10 +654,21 @@ class SecurityScannerAPI:
         try:
             for app_name in app_names:
                 try:
-                    # Update scan status
+                    # Initialize progress tracking
                     with self.scan_lock:
                         if app_name in self.active_scans:
                             self.active_scans[app_name]['status'] = 'running'
+                        self.scan_progress[app_name] = {
+                            'status': 'initializing',
+                            'total_files': 0,
+                            'scanned_files': 0,
+                            'current_file': '',
+                            'percentage': 0,
+                            'secrets_found': 0,
+                            'vulnerabilities_found': 0,
+                            'start_time': datetime.now().isoformat(),
+                            'estimated_time_remaining': None
+                        }
                     
                     # Get application info
                     app = self.db.get_application(app_name)
@@ -637,21 +685,35 @@ class SecurityScannerAPI:
                     if app['repo_type'] != 'local':
                         self.onboarding.update_repository(app_name)
                     
+                    # Count total files for progress tracking
+                    total_files = self._count_scannable_files(scan_path)
+                    with self.scan_lock:
+                        self.scan_progress[app_name]['total_files'] = total_files
+                        self.scan_progress[app_name]['status'] = 'scanning'
+                    
                     # Create scan record
                     scan_id = self.db.create_scan(app_name, scan_type)
                     
                     secret_findings = []
                     sca_findings = []
                     
-                    # Run secret scan
+                    # Run secret scan with progress tracking
                     if scan_type in ['full', 'secrets']:
                         logger.info(f"Running secret scan for {app_name}")
-                        secret_findings = self.secret_scanner.scan_directory(scan_path)
+                        with self.scan_lock:
+                            self.scan_progress[app_name]['status'] = 'scanning_secrets'
+                        secret_findings = self._scan_with_enhanced_progress(
+                            scan_path, 'secrets', app_name, 0, 50 if scan_type == 'full' else 100
+                        )
                     
-                    # Run SCA scan
+                    # Run SCA scan with progress tracking
                     if scan_type in ['full', 'sca']:
                         logger.info(f"Running SCA scan for {app_name}")
-                        sca_findings = self.sca_scanner.scan_directory(scan_path)
+                        with self.scan_lock:
+                            self.scan_progress[app_name]['status'] = 'scanning_dependencies'
+                        sca_findings = self._scan_with_enhanced_progress(
+                            scan_path, 'sca', app_name, 50 if scan_type == 'full' else 0, 100
+                        )
                     
                     # Store findings
                     severity_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
@@ -717,13 +779,68 @@ class SecurityScannerAPI:
                         pass
                 
                 finally:
-                    # Remove from active scans
+                    # Remove from active scans and progress tracking
                     with self.scan_lock:
                         if app_name in self.active_scans:
                             del self.active_scans[app_name]
+                        if app_name in self.scan_progress:
+                            del self.scan_progress[app_name]
         
         except Exception as e:
             logger.error(f"Error in scan thread: {e}")
+    
+    def _count_scannable_files(self, scan_path: str) -> int:
+        """Count total number of scannable files for progress tracking"""
+        try:
+            scannable_extensions = {
+                '.py', '.js', '.ts', '.java', '.php', '.rb', '.go', '.cs', '.cpp', '.c', '.h',
+                '.json', '.xml', '.yaml', '.yml', '.properties', '.config', '.env', '.ini',
+                '.sql', '.sh', '.bash', '.ps1', '.dockerfile', '.tf', '.tfvars'
+            }
+            
+            total_files = 0
+            for root, dirs, files in os.walk(scan_path):
+                # Skip common non-source directories
+                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in {
+                    'node_modules', '__pycache__', 'target', 'build', 'dist', 'vendor'
+                }]
+                
+                for file in files:
+                    if any(file.endswith(ext) for ext in scannable_extensions):
+                        total_files += 1
+            
+            return total_files
+        except Exception as e:
+            logger.error(f"Error counting files: {e}")
+            return 0
+    
+    def _scan_with_enhanced_progress(self, scan_path: str, scan_type: str, app_name: str, 
+                                   start_pct: int, end_pct: int):
+        """Run scan with enhanced progress tracking for large codebases"""
+        try:
+            import time
+            start_time = time.time()
+            
+            if scan_type == 'secrets':
+                findings = self.secret_scanner.scan_directory(scan_path)
+            elif scan_type == 'sca':
+                findings = self.sca_scanner.scan_directory(scan_path)
+            else:
+                return []
+            
+            # Update progress
+            elapsed_time = time.time() - start_time
+            with self.scan_lock:
+                if app_name in self.scan_progress:
+                    self.scan_progress[app_name]['percentage'] = end_pct
+                    self.scan_progress[app_name]['secrets_found'] = len(findings) if scan_type == 'secrets' else self.scan_progress[app_name].get('secrets_found', 0)
+                    self.scan_progress[app_name]['vulnerabilities_found'] = len(findings) if scan_type == 'sca' else self.scan_progress[app_name].get('vulnerabilities_found', 0)
+                    self.scan_progress[app_name]['elapsed_time'] = f"{elapsed_time:.1f}s"
+            
+            return findings
+        except Exception as e:
+            logger.error(f"Error in enhanced {scan_type} scan: {e}")
+            return []
     
     def run(self, host='0.0.0.0', port=5000, debug=False):
         """Run the Flask application"""
